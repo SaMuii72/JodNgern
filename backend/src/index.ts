@@ -78,7 +78,7 @@ app.post('/api/auth/google', async (req, res) => {
         .eq('id', existingUser.id);
     } else {
       const id = crypto.randomUUID();
-      await db.from('users').insert({
+      const { error: insertError } = await db.from('users').insert({
         id,
         google_id: payload.sub,
         email: payload.email,
@@ -86,6 +86,10 @@ app.post('/api/auth/google', async (req, res) => {
         picture: payload.picture || null,
         token,
       });
+      if (insertError) {
+        console.error('Insert user error:', insertError);
+        return res.status(500).json({ error: 'Failed to create user', details: insertError.message });
+      }
     }
 
     const { data: user } = await db
