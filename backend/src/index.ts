@@ -94,6 +94,10 @@ app.post('/api/auth/google', async (req, res) => {
       .eq('email', payload.email)
       .single();
 
+    if (!user) {
+      return res.status(500).json({ error: 'Failed to retrieve user after authentication' });
+    }
+
     res.json({ user, token });
   } catch (error: any) {
     console.error('Error authenticating user:', error);
