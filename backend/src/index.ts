@@ -87,8 +87,9 @@ app.post('/api/auth/google', async (req, res) => {
         token,
       });
       if (insertError) {
-        console.error('Insert user error:', insertError);
-        return res.status(500).json({ error: 'Failed to create user', details: insertError.message });
+        console.error('Insert user error:', JSON.stringify(insertError));
+        console.error('Supabase URL:', process.env.SUPABASE_URL);
+        return res.status(500).json({ error: 'Failed to create user', details: insertError.message, code: insertError.code });
       }
     }
 
