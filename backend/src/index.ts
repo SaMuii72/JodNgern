@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import 'dotenv/config';
 import { getDb } from './database.js';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
@@ -8,7 +9,11 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-app.use(cors());
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173'];
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 function getToken(req: express.Request): string | undefined {
@@ -23,8 +28,13 @@ async function getAuthenticatedUser(req: express.Request) {
   const token = getToken(req);
   if (!token) return null;
 
-  const db = await getDb();
-  return db.get('SELECT id, email, name, picture FROM users WHERE token = ?', [token]);
+  const db = getDb();
+  const { data } = await db
+    .from('users')
+    .select('id, email, name, picture')
+    .eq('token', token)
+    .single();
+  return data;
 }
 
 app.get('/api/health', (_req, res) => {
@@ -52,24 +62,38 @@ app.post('/api/auth/google', async (req, res) => {
       return res.status(400).json({ error: 'Google account information is incomplete' });
     }
 
-    const db = await getDb();
+    const db = getDb();
     const token = crypto.randomUUID();
-    const existingUser = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
+
+    const { data: existingUser } = await db
+      .from('users')
+      .select('id')
+      .eq('email', payload.email)
+      .single();
 
     if (existingUser) {
-      await db.run(
-        'UPDATE users SET google_id = ?, name = ?, picture = ?, token = ? WHERE id = ?',
-        [payload.sub, payload.name, payload.picture || null, token, existingUser.id]
-      );
+      await db
+        .from('users')
+        .update({ google_id: payload.sub, name: payload.name, picture: payload.picture || null, token })
+        .eq('id', existingUser.id);
     } else {
       const id = crypto.randomUUID();
-      await db.run(
-        'INSERT INTO users (id, google_id, email, name, picture, token) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, payload.sub, payload.email, payload.name, payload.picture || null, token]
-      );
+      await db.from('users').insert({
+        id,
+        google_id: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture || null,
+        token,
+      });
     }
 
-    const user = await db.get('SELECT id, email, name, picture FROM users WHERE email = ?', [payload.email]);
+    const { data: user } = await db
+      .from('users')
+      .select('id, email, name, picture')
+      .eq('email', payload.email)
+      .single();
+
     res.json({ user, token });
   } catch (error: any) {
     console.error('Error authenticating user:', error);
@@ -83,7 +107,6 @@ app.get('/api/auth/me', async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-
     res.json(user);
   } catch (error: any) {
     console.error('Error loading current user:', error);
@@ -98,12 +121,16 @@ app.get('/api/transactions', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const db = await getDb();
-    const transactions = await db.all(
-      'SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC, id DESC',
-      [user.id]
-    );
-    res.json(transactions);
+    const db = getDb();
+    const { data, error } = await db
+      .from('transactions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('date', { ascending: false })
+      .order('id', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
   } catch (error: any) {
     console.error('Error fetching transactions:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -128,15 +155,20 @@ app.post('/api/transactions', async (req, res) => {
     }
 
     const id = crypto.randomUUID();
-    const db = await getDb();
+    const db = getDb();
 
-    await db.run(
-      'INSERT INTO transactions (id, amount, type, category, date, note, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, Number(amount), type, category, date, note || '', user.id]
-    );
+    const { error } = await db.from('transactions').insert({
+      id,
+      amount: Number(amount),
+      type,
+      category,
+      date,
+      note: note || '',
+      user_id: user.id,
+    });
 
-    const newTransaction = { id, amount: Number(amount), type, category, date, note: note || '' };
-    res.status(201).json(newTransaction);
+    if (error) throw error;
+    res.status(201).json({ id, amount: Number(amount), type, category, date, note: note || '' });
   } catch (error: any) {
     console.error('Error creating transaction:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -161,18 +193,25 @@ app.put('/api/transactions/:id', async (req, res) => {
       return res.status(400).json({ error: 'Type must be either "income" or "expense"' });
     }
 
-    const db = await getDb();
-    const existing = await db.get('SELECT * FROM transactions WHERE id = ? AND user_id = ?', [id, user.id]);
+    const db = getDb();
+    const { data: existing } = await db
+      .from('transactions')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
 
     if (!existing) {
       return res.status(404).json({ error: 'Transaction not found' });
     }
 
-    await db.run(
-      'UPDATE transactions SET amount = ?, type = ?, category = ?, date = ?, note = ? WHERE id = ? AND user_id = ?',
-      [Number(amount), type, category, date, note || '', id, user.id]
-    );
+    const { error } = await db
+      .from('transactions')
+      .update({ amount: Number(amount), type, category, date, note: note || '' })
+      .eq('id', id)
+      .eq('user_id', user.id);
 
+    if (error) throw error;
     res.json({ id, amount: Number(amount), type, category, date, note: note || '' });
   } catch (error: any) {
     console.error('Error updating transaction:', error);
@@ -188,14 +227,26 @@ app.delete('/api/transactions/:id', async (req, res) => {
     }
 
     const { id } = req.params;
-    const db = await getDb();
+    const db = getDb();
 
-    const existing = await db.get('SELECT * FROM transactions WHERE id = ? AND user_id = ?', [id, user.id]);
+    const { data: existing } = await db
+      .from('transactions')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
     if (!existing) {
       return res.status(404).json({ error: 'Transaction not found' });
     }
 
-    await db.run('DELETE FROM transactions WHERE id = ? AND user_id = ?', [id, user.id]);
+    const { error } = await db
+      .from('transactions')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
     res.json({ success: true, message: 'Transaction deleted successfully' });
   } catch (error: any) {
     console.error('Error deleting transaction:', error);

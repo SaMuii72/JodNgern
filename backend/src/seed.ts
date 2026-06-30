@@ -3,11 +3,10 @@ import crypto from 'crypto';
 
 async function seed() {
   try {
-    const db = await getDb();
-    
-    // เคลียร์ข้อมูลเก่าทั้งหมดก่อนเพื่อให้เป็นข้อมูลชุดตัวอย่างที่แน่นอน
-    await db.run('DELETE FROM transactions');
-    
+    const db = getDb();
+
+    await db.from('transactions').delete().neq('id', '');
+
     const dummyData = [
       { amount: 45000, type: 'income', category: 'เงินเดือน', date: '2026-06-01', note: 'เงินเดือนประจำเดือนมิถุนายน' },
       { amount: 1500, type: 'income', category: 'การลงทุน', date: '2026-06-15', note: 'เงินปันผลกองทุนรวม' },
@@ -22,13 +21,8 @@ async function seed() {
       { amount: 800, type: 'expense', category: 'สุขภาพ/การแพทย์', date: '2026-06-29', note: 'ซื้อวิตามินบำรุงสุขภาพ' }
     ];
 
-    for (const item of dummyData) {
-      const id = crypto.randomUUID();
-      await db.run(
-        'INSERT INTO transactions (id, amount, type, category, date, note) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, item.amount, item.type, item.category, item.date, item.note]
-      );
-    }
+    const rows = dummyData.map(item => ({ id: crypto.randomUUID(), ...item }));
+    await db.from('transactions').insert(rows);
 
     console.log('Seeded database successfully with dummy transactions!');
     process.exit(0);
