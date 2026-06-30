@@ -30,7 +30,7 @@ async function getAuthenticatedUser(req: express.Request) {
 
   const db = getDb();
   const { data } = await db
-    .from('users')
+    .from('profiles')
     .select('id, email, name, picture')
     .eq('token', token)
     .single();
@@ -66,19 +66,19 @@ app.post('/api/auth/google', async (req, res) => {
     const token = crypto.randomUUID();
 
     const { data: existingUser } = await db
-      .from('users')
+      .from('profiles')
       .select('id')
       .eq('email', payload.email)
       .single();
 
     if (existingUser) {
       await db
-        .from('users')
+        .from('profiles')
         .update({ google_id: payload.sub, name: payload.name, picture: payload.picture || null, token })
         .eq('id', existingUser.id);
     } else {
       const id = crypto.randomUUID();
-      const { error: insertError } = await db.from('users').insert({
+      const { error: insertError } = await db.from('profiles').insert({
         id,
         google_id: payload.sub,
         email: payload.email,
@@ -94,7 +94,7 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     const { data: user } = await db
-      .from('users')
+      .from('profiles')
       .select('id, email, name, picture')
       .eq('email', payload.email)
       .single();
