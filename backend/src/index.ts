@@ -38,7 +38,11 @@ async function getAuthenticatedUser(req: express.Request) {
 }
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ 
+    ok: true,
+    supabase_url: process.env.SUPABASE_URL || 'NOT SET',
+    has_key: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
 });
 
 app.post('/api/auth/google', async (req, res) => {
