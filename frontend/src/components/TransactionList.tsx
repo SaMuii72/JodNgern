@@ -144,61 +144,98 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         </div>
       ) : (
         <div className="transaction-list-container">
-          {sortedDates.map((dateStr) => (
-            <div key={dateStr}>
-              <div className="date-divider">
-                {formatDateHeader(dateStr)}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {groupedTransactions[dateStr].map((item) => {
-                  const meta = getCategoryMeta(item.category, item.type);
-                  const Icon = meta.icon;
-                  return (
-                    <div key={item.id} className="transaction-item">
-                      <div className="transaction-left">
-                        <div 
-                          className={`transaction-icon-box ${item.type}`}
-                          style={{ backgroundColor: meta.bg, color: meta.color }}
-                        >
-                          <Icon size={18} />
+          {sortedDates.map((dateStr) => {
+            const dayItems = groupedTransactions[dateStr];
+
+            // คำนวณยอดรวมรายวัน
+            const dayIncome = dayItems
+              .filter((t) => t.type === 'income')
+              .reduce((sum, t) => sum + t.amount, 0);
+            const dayExpense = dayItems
+              .filter((t) => t.type === 'expense')
+              .reduce((sum, t) => sum + t.amount, 0);
+            const dayNet = dayIncome - dayExpense;
+
+            const fmt = (n: number) =>
+              new Intl.NumberFormat('th-TH', {
+                style: 'currency',
+                currency: 'THB',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(n);
+
+            return (
+              <div key={dateStr}>
+                {/* ── วันที่ + ยอดรวมรายวัน ── */}
+                <div className="date-divider">
+                  <span>{formatDateHeader(dateStr)}</span>
+
+                  <div className="daily-summary">
+                    {dayIncome > 0 && (
+                      <span className="daily-badge income">+{fmt(dayIncome)}</span>
+                    )}
+                    {dayExpense > 0 && (
+                      <span className="daily-badge expense">-{fmt(dayExpense)}</span>
+                    )}
+                    {dayIncome > 0 && dayExpense > 0 && (
+                      <span className={`daily-badge ${dayNet >= 0 ? 'net-positive' : 'net-negative'}`}>
+                        สุทธิ {dayNet >= 0 ? '+' : ''}{fmt(dayNet)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {dayItems.map((item) => {
+                    const meta = getCategoryMeta(item.category, item.type);
+                    const Icon = meta.icon;
+                    return (
+                      <div key={item.id} className="transaction-item">
+                        <div className="transaction-left">
+                          <div
+                            className={`transaction-icon-box ${item.type}`}
+                            style={{ backgroundColor: meta.bg, color: meta.color }}
+                          >
+                            <Icon size={18} />
+                          </div>
+                          <div className="transaction-info">
+                            <div className="transaction-category">{item.category}</div>
+                            {item.note && (
+                              <div className="transaction-note" title={item.note}>
+                                {item.note}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="transaction-info">
-                          <div className="transaction-category">{item.category}</div>
-                          {item.note && (
-                            <div className="transaction-note" title={item.note}>
-                              {item.note}
-                            </div>
-                          )}
+
+                        <div className="transaction-right">
+                          <div className={`transaction-amount ${item.type === 'income' ? 'text-income' : 'text-expense'}`}>
+                            {formatCurrency(item.amount, item.type)}
+                          </div>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button
+                              onClick={() => onEdit(item)}
+                              className="action-btn"
+                              title="แก้ไขรายการ"
+                            >
+                              <Edit2 size={14} style={{ color: '#64748b' }} />
+                            </button>
+                            <button
+                              onClick={() => onDelete(item.id)}
+                              className="action-btn"
+                              title="ลบรายการ"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      
-                      <div className="transaction-right">
-                        <div className={`transaction-amount ${item.type === 'income' ? 'text-income' : 'text-expense'}`}>
-                          {formatCurrency(item.amount, item.type)}
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button 
-                            onClick={() => onEdit(item)} 
-                            className="action-btn"
-                            title="แก้ไขรายการ"
-                          >
-                            <Edit2 size={14} style={{ color: '#64748b' }} />
-                          </button>
-                          <button 
-                            onClick={() => onDelete(item.id)} 
-                            className="action-btn"
-                            title="ลบรายการ"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

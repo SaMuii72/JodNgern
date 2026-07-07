@@ -1514,6 +1514,197 @@ header {
   }
 }
 
+/* ======================== TOAST NOTIFICATIONS ======================== */
+.toast-container {
+  position: fixed;
+  /* Mobile: bottom center above bottom nav */
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 2000;
+  pointer-events: none;
+  width: calc(100% - 32px);
+  max-width: 400px;
+}
+
+@media (min-width: 1024px) {
+  /* Desktop: top-right corner */
+  .toast-container {
+    top: 20px;
+    bottom: auto;
+    right: 24px;
+    left: auto;
+    transform: none;
+    width: auto;
+    min-width: 300px;
+    max-width: 380px;
+  }
+}
+
+.toast-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 14px;
+  font-weight: 500;
+  pointer-events: all;
+  cursor: default;
+  border: 1px solid transparent;
+
+  /* Start invisible (slide-from-bottom on mobile, slide-from-right on desktop) */
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 1024px) {
+  .toast-item {
+    transform: translateX(40px);
+  }
+}
+
+/* Visible state */
+.toast-item.toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (min-width: 1024px) {
+  .toast-item.toast-visible {
+    transform: translateX(0);
+  }
+}
+
+/* Leaving state */
+.toast-item.toast-leaving {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.96);
+}
+
+@media (min-width: 1024px) {
+  .toast-item.toast-leaving {
+    transform: translateX(40px) scale(0.96);
+  }
+}
+
+/* Variants */
+.toast-success {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.toast-error {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.toast-info {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.toast-success .toast-icon { color: #16a34a; }
+.toast-error .toast-icon   { color: #dc2626; }
+.toast-info  .toast-icon   { color: #2563eb; }
+
+.toast-message {
+  flex: 1;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.55;
+  transition: opacity var(--transition-fast);
+  color: inherit;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+/* ======================== DAILY SUMMARY (ยอดรวมรายวัน) ======================== */
+.daily-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.daily-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.daily-badge.income {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.daily-badge.expense {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.daily-badge.net-positive {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.daily-badge.net-negative {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.daily-net-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* Date divider row — flex to accommodate summary */
+.date-divider {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  row-gap: 4px;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

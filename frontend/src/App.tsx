@@ -20,6 +20,7 @@ import Dashboard from './components/Dashboard';
 import TransactionForm from './components/TransactionForm';
 import TransactionList from './components/TransactionList';
 import AnalyticsCharts from './components/AnalyticsCharts';
+import ToastContainer, { useToast } from './components/Toast';
 
 type PageType = 'record' | 'analytics';
 
@@ -34,6 +35,7 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<PageType>('record');
   const [loginLoading, setLoginLoading] = useState(false);
+  const { toasts, addToast, removeToast } = useToast();
 
   const loadData = async () => {
     if (!user) {
@@ -88,13 +90,18 @@ function App() {
         const updated = await updateTransaction(editTransaction.id, input);
         setTransactions(prev => prev.map(t => t.id === editTransaction.id ? updated : t));
         setEditTransaction(null);
+        addToast('✏️ แก้ไขรายการเรียบร้อยแล้ว', 'success');
       } else {
         const newTrans = await createTransaction(input);
         setTransactions(prev => [newTrans, ...prev]);
+        addToast(
+          `${input.type === 'income' ? '💰 บันทึกรายรับ' : '💸 บันทึกรายจ่าย'}เรียบร้อยแล้ว`,
+          'success'
+        );
       }
       setIsModalOpen(false);
     } catch {
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      addToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
     }
   };
 
@@ -369,6 +376,9 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
