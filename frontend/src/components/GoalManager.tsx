@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, X, Check, Target, CalendarDays, ChevronRight, Pencil } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, Target, CalendarDays, Pencil } from 'lucide-react';
 import type { SavingsGoal, SavingsGoalInput, GoalTrackingType, Wallet, Transaction } from '../types';
-import { computeWalletBalance, WALLET_TYPES } from './WalletManager';
+import { computeWalletBalance } from './WalletManager';
 
 // ======================== CONSTANTS ========================
 

@@ -3,10 +3,10 @@ import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const ws = require('ws');
+const WebSocket = require('ws');
 
 if (typeof globalThis.WebSocket === 'undefined') {
-  (globalThis as any).WebSocket = ws;
+  (globalThis as any).WebSocket = WebSocket;
 }
 
 let supabaseClient: SupabaseClient | null = null;

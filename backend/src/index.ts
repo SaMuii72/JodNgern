@@ -131,6 +131,60 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
+app.post('/api/auth/email', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    if (!email || !name) {
+      return res.status(400).json({ error: 'กรุณากรอกอีเมลและชื่อ-นามสกุล' });
+    }
+
+    const db = getDb();
+    const token = crypto.randomUUID();
+
+    const { data: existingUser } = await db
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      await db
+        .from('profiles')
+        .update({ name, token })
+        .eq('id', existingUser.id);
+    } else {
+      const id = crypto.randomUUID();
+      const { error: insertError } = await db.from('profiles').insert({
+        id,
+        google_id: null,
+        email,
+        name,
+        picture: null,
+        token,
+      });
+      if (insertError) {
+        console.error('Insert email user error:', JSON.stringify(insertError));
+        return res.status(500).json({ error: 'Failed to create user', details: insertError.message });
+      }
+    }
+
+    const { data: user } = await db
+      .from('profiles')
+      .select('id, email, name, picture')
+      .eq('email', email)
+      .single();
+
+    if (!user) {
+      return res.status(500).json({ error: 'Failed to retrieve user' });
+    }
+
+    res.json({ user, token });
+  } catch (error: any) {
+    console.error('Email authentication error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/api/auth/me', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);

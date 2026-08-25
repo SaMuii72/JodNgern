@@ -10,7 +10,7 @@ import {
   fetchTransactions, createTransaction, updateTransaction, deleteTransaction,
   fetchWallets, createWallet, updateWallet, deleteWallet,
   fetchGoals, createGoal, updateGoal, deleteGoal,
-  loginWithGoogle, fetchCurrentUser, logout, getStoredSession,
+  loginWithGoogle, loginWithEmail, fetchCurrentUser, logout, getStoredSession,
 } from './api';
 import Dashboard from './components/Dashboard';
 import TransactionForm from './components/TransactionForm';
@@ -178,21 +178,57 @@ function App() {
 
   // ======================== AUTH ========================
 
+  const [emailInput, setEmailInput] = useState('');
+  const [nameInput, setNameInput] = useState('');
+
   const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) { setAuthError('ไม่รับข้อมูลจาก Google ได้'); return; }
+    if (!response.credential) { setAuthError('ไม่ได้รับข้อมูลจาก Google ได้'); return; }
     setLoginLoading(true);
     setAuthError(null);
     try {
       const result = await loginWithGoogle({ credential: response.credential });
       setUser(result.user);
-    } catch {
-      setAuthError('ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
+    } catch (err: any) {
+      setAuthError(err.message || 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
     } finally {
       setLoginLoading(false);
     }
   };
 
-  const handleGoogleError = () => { setAuthError('การเข้าสู่ระบบด้วย Google ล้มเหลว'); };
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailInput || !nameInput) {
+      setAuthError('กรุณากรอกอีเมลและชื่อ-นามสกุลให้ครบถ้วน');
+      return;
+    }
+    setLoginLoading(true);
+    setAuthError(null);
+    try {
+      const result = await loginWithEmail({ email: emailInput, name: nameInput });
+      setUser(result.user);
+    } catch (err: any) {
+      setAuthError(err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleTestLogin = async () => {
+    setLoginLoading(true);
+    setAuthError(null);
+    try {
+      const result = await loginWithGoogle({ credential: 'demo-test-token' });
+      setUser(result.user);
+    } catch (err: any) {
+      setAuthError(err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบทดสอบ');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setAuthError('การเข้าสู่ระบบด้วย Google ล้มเหลว (โปรดตรวจสอบการตั้งค่า Authorized Origins ใน Google Cloud Console หรือใช้วิธีเข้าสู่ระบบด้านล่าง)');
+  };
 
   const handleLogout = () => {
     logout();
@@ -243,7 +279,7 @@ function App() {
         <div className="auth-card">
           <div className="auth-badge">
             <ShieldCheck size={16} />
-            <span>เข้าสู่ระบบด้วยบัญชี Google</span>
+            <span>เข้าสู่ระบบ MoneyBook</span>
           </div>
           <div className="auth-header">
             <Wallet size={28} className="brand-icon" />
@@ -251,31 +287,104 @@ function App() {
             <p>บันทึกรายรับ-รายจ่ายของคุณและเก็บข้อมูลแยกตามผู้ใช้แบบปลอดภัย</p>
           </div>
 
-          <div className="auth-form">
+          <div className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {authError && <div className="auth-error">{authError}</div>}
+
+            {/* Google Login */}
             {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                size="large"
-                text="continue_with"
-                shape="pill"
-              />
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  size="large"
+                  text="continue_with"
+                  shape="pill"
+                />
+              </div>
             ) : (
               <div className="auth-error">
                 ตั้งค่า VITE_GOOGLE_CLIENT_ID ในไฟล์ .env ของ frontend ก่อนใช้งาน Google Sign-In
               </div>
             )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '4px 0' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-color, #e2e8f0)' }}></div>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>หรือ เข้าสู่ระบบด้วยอีเมล</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-color, #e2e8f0)' }}></div>
+            </div>
+
+            {/* Email Login Form */}
+            <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <input
+                type="text"
+                placeholder="ชื่อ - นามสกุล"
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-color, #cbd5e1)',
+                  fontSize: '14px',
+                  outline: 'none',
+                }}
+              />
+              <input
+                type="email"
+                placeholder="อีเมล (เช่น user@example.com)"
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-color, #cbd5e1)',
+                  fontSize: '14px',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="btn-primary"
+                style={{
+                  padding: '10px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                เข้าสู่ระบบ
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={handleTestLogin}
+              disabled={loginLoading}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '12px',
+                fontSize: '13px',
+                cursor: 'pointer',
+                border: '1px dashed var(--border-color, #cbd5e1)',
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                fontWeight: 500,
+              }}
+            >
+              ⚡ เข้าสู่ระบบด้วยบัญชีทดสอบ (1-Click Demo)
+            </button>
+
             {loginLoading && (
-              <div className="auth-note" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="auth-note" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 <Loader2 size={16} className="animate-spin" />
-                <span>กำลังยืนยันบัญชี Google...</span>
+                <span>กำลังดำเนินการ...</span>
               </div>
             )}
           </div>
 
-          <div className="auth-note">
-            ระบบจะยืนยันบัญชี Google ของคุณและเก็บรายการแยกตามผู้ใช้งาน เพื่อให้คุณกลับมาใช้งานต่อได้ทุกที่
+          <div className="auth-note" style={{ marginTop: '16px' }}>
+            ระบบจะเก็บข้อมูลแยกตามผู้ใช้งาน เพื่อให้คุณกลับมาใช้งานต่อได้ทุกที่
           </div>
         </div>
       </div>
