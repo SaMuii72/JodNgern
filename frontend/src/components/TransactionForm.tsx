@@ -3,12 +3,13 @@ import {
   Utensils, Car, ShoppingBag, Lightbulb, Film, HeartPulse, 
   Briefcase, Store, Coins, HelpCircle, Calendar, FileText, Plus, Check 
 } from 'lucide-react';
-import type { Transaction, TransactionInput } from '../types';
+import type { Transaction, TransactionInput, Wallet } from '../types';
 
 interface TransactionFormProps {
   onSubmit: (data: TransactionInput) => void;
   editTransaction?: Transaction | null;
   onCancelEdit?: () => void;
+  wallets?: Wallet[];
 }
 
 // โครงสร้างหมวดหมู่พร้อมไอคอน
@@ -33,13 +34,15 @@ export const CATEGORIES = {
 export const TransactionForm: React.FC<TransactionFormProps> = ({ 
   onSubmit, 
   editTransaction, 
-  onCancelEdit 
+  onCancelEdit,
+  wallets = [],
 }) => {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<string>('');
   const [category, setCategory] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState<string>('');
+  const [walletId, setWalletId] = useState<string>('');
 
   // โหลดข้อมูลเก่าเข้ามาเมื่อต้องการแก้ไข
   useEffect(() => {
@@ -49,12 +52,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       setCategory(editTransaction.category);
       setDate(editTransaction.date);
       setNote(editTransaction.note || '');
+      setWalletId(editTransaction.wallet_id ?? '');
     } else {
       // รีเซ็ตฟอร์มกลับเป็นค่าเริ่มต้น
       setAmount('');
       setCategory('');
       setDate(new Date().toISOString().split('T')[0]);
       setNote('');
+      setWalletId('');
     }
   }, [editTransaction]);
 
@@ -83,7 +88,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       type,
       category,
       date,
-      note
+      note,
+      wallet_id: walletId || null,
     });
 
     // รีเซ็ตฟอร์ม
@@ -92,6 +98,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       setCategory('');
       setNote('');
       setDate(new Date().toISOString().split('T')[0]);
+      setWalletId('');
     }
   };
 
@@ -193,6 +200,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           className="input-field"
         />
       </div>
+
+      {/* 6. กระเป๋าเงิน (optional — แสดงเมื่อมี wallets) */}
+      {wallets.length > 0 && (
+        <div className="form-group">
+          <label className="form-label">💼 กระเป๋าเงิน (ไม่บังคับ)</label>
+          <select
+            value={walletId}
+            onChange={e => setWalletId(e.target.value)}
+            className="input-field"
+          >
+            <option value="">— ไม่ระบุกระเป๋า —</option>
+            {wallets.map(w => (
+              <option key={w.id} value={w.id}>{w.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* ปุ่มกดส่งข้อมูล */}
       <button type="submit" className="btn-primary">
