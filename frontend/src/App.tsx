@@ -128,7 +128,7 @@ function App() {
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) {
-      setAuthError('ไม่รับข้อมูลจาก Google ได้');
+      setAuthError('ไม่ได้รับข้อมูลจาก Google ได้');
       return;
     }
 
@@ -137,15 +137,28 @@ function App() {
     try {
       const result = await loginWithGoogle({ credential: response.credential });
       setUser(result.user);
-    } catch {
-      setAuthError('ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
+    } catch (err: any) {
+      setAuthError(err.message || 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleTestLogin = async () => {
+    setLoginLoading(true);
+    setAuthError(null);
+    try {
+      const result = await loginWithGoogle({ credential: 'demo-test-token' });
+      setUser(result.user);
+    } catch (err: any) {
+      setAuthError(err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบทดสอบ');
     } finally {
       setLoginLoading(false);
     }
   };
 
   const handleGoogleError = () => {
-    setAuthError('การเข้าสู่ระบบด้วย Google ล้มเหลว');
+    setAuthError('การเข้าสู่ระบบด้วย Google ล้มเหลว (โปรดตรวจสอบการตั้งค่า Authorized JavaScript origins ใน Google Cloud Console)');
   };
 
   const handleLogout = () => {
@@ -203,10 +216,34 @@ function App() {
               </div>
             )}
 
+            <div style={{ margin: '8px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>หรือ</div>
+
+            <button
+              type="button"
+              onClick={handleTestLogin}
+              disabled={loginLoading}
+              className="btn-secondary"
+              style={{
+                padding: '10px 20px',
+                borderRadius: '24px',
+                fontSize: '14px',
+                cursor: 'pointer',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                background: 'var(--bg-card, #ffffff)',
+                color: 'var(--text-main, #0f172a)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontWeight: 500,
+              }}
+            >
+              <span>⚡ เข้าสู่ระบบบัญชีทดสอบ (Demo Account)</span>
+            </button>
+
             {loginLoading && (
-              <div className="auth-note" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="auth-note" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
                 <Loader2 size={16} className="animate-spin" />
-                <span>กำลังยืนยันบัญชี Google...</span>
+                <span>กำลังยืนยันบัญชี...</span>
               </div>
             )}
           </div>

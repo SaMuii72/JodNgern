@@ -48,19 +48,24 @@ export function logout(): void {
 }
 
 export async function loginWithGoogle(payload: GoogleLoginPayload): Promise<{ user: UserProfile; token: string }> {
-  const response = await fetch(`${API_BASE_URL}/auth/google`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error('ไม่สามารถเข้าสู่ระบบได้');
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/auth/google`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (netErr) {
+    throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ Backend (พอร์ต 5001) ได้ กรุณาตรวจสอบการรันเซิร์ฟเวอร์');
   }
 
   const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.details || data.error || 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้');
+  }
+
   setStoredSession(data.token, data.user);
   return data;
 }
