@@ -1,7 +1,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
-import ws from 'ws';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const ws = require('ws');
 
 if (typeof globalThis.WebSocket === 'undefined') {
   (globalThis as any).WebSocket = ws;
@@ -50,6 +52,27 @@ export async function initDb(): Promise<void> {
       picture TEXT,
       token TEXT
     );
+    CREATE TABLE IF NOT EXISTS wallets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      name TEXT,
+      type TEXT,
+      initial_balance REAL DEFAULT 0,
+      color TEXT DEFAULT '#4f46e5',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS savings_goals (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      name TEXT,
+      target_amount REAL,
+      current_amount REAL DEFAULT 0,
+      deadline TEXT,
+      wallet_id TEXT,
+      tracking_type TEXT DEFAULT 'manual',
+      color TEXT DEFAULT '#4f46e5',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS transactions (
       id TEXT PRIMARY KEY,
       amount REAL,
@@ -57,9 +80,16 @@ export async function initDb(): Promise<void> {
       category TEXT,
       date TEXT,
       note TEXT,
-      user_id TEXT
+      user_id TEXT,
+      wallet_id TEXT
     );
   `);
+
+  try {
+    await sqliteDb.exec(`ALTER TABLE transactions ADD COLUMN wallet_id TEXT;`);
+  } catch {
+    // Column already exists
+  }
 
   console.log('Initialized local SQLite database (money.db)');
 }

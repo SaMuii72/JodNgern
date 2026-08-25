@@ -37,9 +37,13 @@ async function getAuthenticatedUser(req: express.Request) {
   return data;
 }
 
+// ======================== HEALTH ========================
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
+
+// ======================== AUTH ========================
 
 app.post('/api/auth/google', async (req, res) => {
   try {
@@ -48,35 +52,16 @@ app.post('/api/auth/google', async (req, res) => {
       return res.status(400).json({ error: 'Google credential is required' });
     }
 
-    let payload: any;
-
-    if (credential === 'demo-test-token' || credential === 'test-token') {
-      payload = {
-        sub: 'demo-google-id-12345',
-        email: 'demo.user@example.com',
-        name: 'ผู้ใช้ทดสอบ (Demo User)',
-        picture: 'https://lh3.googleusercontent.com/a/default-user',
-      };
-    } else {
-      if (!process.env.GOOGLE_CLIENT_ID) {
-        return res.status(500).json({ error: 'Google client ID is not configured' });
-      }
-
-      try {
-        const ticket = await googleClient.verifyIdToken({
-          idToken: credential,
-          audience: process.env.GOOGLE_CLIENT_ID,
-        });
-        payload = ticket.getPayload();
-      } catch (verifyError: any) {
-        console.error('Google token verification failed:', verifyError.message || verifyError);
-        return res.status(401).json({
-          error: 'Google authentication failed',
-          details: verifyError.message || 'Verification failed',
-        });
-      }
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(500).json({ error: 'Google client ID is not configured' });
     }
 
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
     if (!payload?.email || !payload.name) {
       return res.status(400).json({ error: 'Google account information is incomplete' });
     }
@@ -107,7 +92,7 @@ app.post('/api/auth/google', async (req, res) => {
       });
       if (insertError) {
         console.error('Insert user error:', JSON.stringify(insertError));
-        return res.status(500).json({ error: 'Failed to create user', details: insertError.message || insertError });
+        return res.status(500).json({ error: 'Failed to create user', details: insertError.message, code: insertError.code });
       }
     }
 
@@ -124,7 +109,7 @@ app.post('/api/auth/google', async (req, res) => {
     res.json({ user, token });
   } catch (error: any) {
     console.error('Error authenticating user:', error);
-    res.status(401).json({ error: 'Google authentication failed', details: error.message || 'Auth error' });
+    res.status(401).json({ error: 'Google authentication failed' });
   }
 });
 
@@ -140,6 +125,8 @@ app.get('/api/auth/me', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// ======================== TRANSACTIONS ========================
 
 app.get('/api/transactions', async (req, res) => {
   try {
@@ -282,11 +269,7 @@ app.delete('/api/transactions/:id', async (req, res) => {
   }
 });
 
-async function startServer() {
-  await initDb();
-  // ============================================================
-// WALLETS
-// ============================================================
+// ======================== WALLETS ========================
 
 app.get('/api/wallets', async (req, res) => {
   try {
@@ -369,9 +352,7 @@ app.delete('/api/wallets/:id', async (req, res) => {
   }
 });
 
-// ============================================================
-// SAVINGS GOALS
-// ============================================================
+// ======================== SAVINGS GOALS ========================
 
 app.get('/api/goals', async (req, res) => {
   try {
@@ -464,9 +445,11 @@ app.delete('/api/goals/:id', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+async function startServer() {
+  await initDb();
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
 }
 
 startServer().catch(console.error);
