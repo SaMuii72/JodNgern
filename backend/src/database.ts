@@ -96,7 +96,9 @@ export async function initDb(): Promise<void> {
 
 class SqliteQueryBuilder {
   private tableName: string;
+  private operation: 'select' | 'update' | 'delete' = 'select';
   private selectFields: string = '*';
+  private updateData: Record<string, any> | null = null;
   private eqConditions: Record<string, any> = {};
   private neqConditions: Record<string, any> = {};
   private orderFields: { field: string; ascending: boolean }[] = [];
@@ -107,7 +109,19 @@ class SqliteQueryBuilder {
   }
 
   select(fields: string = '*') {
+    this.operation = 'select';
     this.selectFields = fields;
+    return this;
+  }
+
+  update(data: Record<string, any>) {
+    this.operation = 'update';
+    this.updateData = data;
+    return this;
+  }
+
+  delete() {
+    this.operation = 'delete';
     return this;
   }
 
@@ -134,37 +148,83 @@ class SqliteQueryBuilder {
   async then(resolve: (value: { data: any; error: any }) => void, reject?: (reason: any) => void) {
     try {
       if (!sqliteDb) await initDb();
-      let sql = `SELECT ${this.selectFields} FROM ${this.tableName}`;
-      const params: any[] = [];
-      const whereClauses: string[] = [];
 
-      for (const [k, v] of Object.entries(this.eqConditions)) {
-        whereClauses.push(`${k} = ?`);
-        params.push(v);
-      }
-      for (const [k, v] of Object.entries(this.neqConditions)) {
-        whereClauses.push(`${k} != ?`);
-        params.push(v);
-      }
+      if (this.operation === 'select') {
+        let sql = `SELECT ${this.selectFields} FROM ${this.tableName}`;
+        const params: any[] = [];
+        const whereClauses: string[] = [];
 
-      if (whereClauses.length > 0) {
-        sql += ` WHERE ${whereClauses.join(' AND ')}`;
-      }
+        for (const [k, v] of Object.entries(this.eqConditions)) {
+          whereClauses.push(`${k} = ?`);
+          params.push(v);
+        }
+        for (const [k, v] of Object.entries(this.neqConditions)) {
+          whereClauses.push(`${k} != ?`);
+          params.push(v);
+        }
 
-      if (this.orderFields.length > 0) {
-        const orderStr = this.orderFields
-          .map(o => `${o.field} ${o.ascending ? 'ASC' : 'DESC'}`)
-          .join(', ');
-        sql += ` ORDER BY ${orderStr}`;
-      }
+        if (whereClauses.length > 0) {
+          sql += ` WHERE ${whereClauses.join(' AND ')}`;
+        }
 
-      if (this.isSingle) {
-        sql += ' LIMIT 1';
-        const row = await sqliteDb!.get(sql, params);
-        resolve({ data: row || null, error: null });
-      } else {
-        const rows = await sqliteDb!.all(sql, params);
-        resolve({ data: rows, error: null });
+        if (this.orderFields.length > 0) {
+          const orderStr = this.orderFields
+            .map(o => `${o.field} ${o.ascending ? 'ASC' : 'DESC'}`)
+            .join(', ');
+          sql += ` ORDER BY ${orderStr}`;
+        }
+
+        if (this.isSingle) {
+          sql += ' LIMIT 1';
+          const row = await sqliteDb!.get(sql, params);
+          resolve({ data: row || null, error: null });
+        } else {
+          const rows = await sqliteDb!.all(sql, params);
+          resolve({ data: rows, error: null });
+        }
+      } else if (this.operation === 'update') {
+        if (!this.updateData) {
+          resolve({ data: null, error: new Error('No update data provided') });
+          return;
+        }
+        const setKeys = Object.keys(this.updateData);
+        const setClause = setKeys.map(k => `${k} = ?`).join(', ');
+        const setValues = setKeys.map(k => this.updateData![k]);
+
+        const whereClauses: string[] = [];
+        const whereValues: any[] = [];
+        for (const [k, v] of Object.entries(this.eqConditions)) {
+          whereClauses.push(`${k} = ?`);
+          whereValues.push(v);
+        }
+
+        let sql = `UPDATE ${this.tableName} SET ${setClause}`;
+        if (whereClauses.length > 0) {
+          sql += ` WHERE ${whereClauses.join(' AND ')}`;
+        }
+
+        await sqliteDb!.run(sql, [...setValues, ...whereValues]);
+        resolve({ data: this.updateData, error: null });
+      } else if (this.operation === 'delete') {
+        const whereClauses: string[] = [];
+        const whereValues: any[] = [];
+
+        for (const [k, v] of Object.entries(this.eqConditions)) {
+          whereClauses.push(`${k} = ?`);
+          whereValues.push(v);
+        }
+        for (const [k, v] of Object.entries(this.neqConditions)) {
+          whereClauses.push(`${k} != ?`);
+          whereValues.push(v);
+        }
+
+        let sql = `DELETE FROM ${this.tableName}`;
+        if (whereClauses.length > 0) {
+          sql += ` WHERE ${whereClauses.join(' AND ')}`;
+        }
+
+        await sqliteDb!.run(sql, whereValues);
+        resolve({ data: null, error: null });
       }
     } catch (err: any) {
       resolve({ data: null, error: err });
@@ -187,60 +247,8 @@ class SqliteQueryBuilder {
       return { data: null, error: err };
     }
   }
-
-  async update(data: Record<string, any>) {
-    try {
-      if (!sqliteDb) await initDb();
-      const setKeys = Object.keys(data);
-      const setClause = setKeys.map(k => `${k} = ?`).join(', ');
-      const setValues = setKeys.map(k => data[k]);
-
-      const whereClauses: string[] = [];
-      const whereValues: any[] = [];
-      for (const [k, v] of Object.entries(this.eqConditions)) {
-        whereClauses.push(`${k} = ?`);
-        whereValues.push(v);
-      }
-
-      let sql = `UPDATE ${this.tableName} SET ${setClause}`;
-      if (whereClauses.length > 0) {
-        sql += ` WHERE ${whereClauses.join(' AND ')}`;
-      }
-
-      await sqliteDb!.run(sql, [...setValues, ...whereValues]);
-      return { data, error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
-    }
-  }
-
-  async delete() {
-    try {
-      if (!sqliteDb) await initDb();
-      const whereClauses: string[] = [];
-      const whereValues: any[] = [];
-
-      for (const [k, v] of Object.entries(this.eqConditions)) {
-        whereClauses.push(`${k} = ?`);
-        whereValues.push(v);
-      }
-      for (const [k, v] of Object.entries(this.neqConditions)) {
-        whereClauses.push(`${k} != ?`);
-        whereValues.push(v);
-      }
-
-      let sql = `DELETE FROM ${this.tableName}`;
-      if (whereClauses.length > 0) {
-        sql += ` WHERE ${whereClauses.join(' AND ')}`;
-      }
-
-      await sqliteDb!.run(sql, whereValues);
-      return { data: null, error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
-    }
-  }
 }
+
 
 export function getDb(): any {
   if (useSQLiteMode) {
